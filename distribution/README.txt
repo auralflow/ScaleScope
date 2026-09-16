@@ -52,7 +52,8 @@ Audio file mode:
 3. Play / Pause starts and stops playback. You can also press Space.
 4. In Loop mode, the selected range repeats and the spectrum is calculated for that range.
 5. With Loop off, the spectrum follows the current playback position.
-6. Replace audio switches the file; Delete audio removes it from the current session.
+6. Use the Audio slider in the waveform toolbar to adjust file playback volume.
+7. Replace audio switches the file; Delete audio removes it from the current session.
 
 Microphone mode:
 1. Click Microphone and allow browser access to your microphone.

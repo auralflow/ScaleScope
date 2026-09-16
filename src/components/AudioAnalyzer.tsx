@@ -41,6 +41,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const waveSurferRef = useRef<WaveSurfer | null>(null);
   const regionsRef = useRef<ReturnType<typeof Regions.create> | null>(null);
   const regionRef = useRef<ReturnType<ReturnType<typeof Regions.create>["addRegion"]> | null>(null);
+  const disableDragSelectionRef = useRef<(() => void) | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const microphoneContextRef = useRef<AudioContext | null>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
@@ -67,6 +68,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const [spectrumSource, setSpectrumSource] = useState<SpectrumSource>("file");
   const [loop, setLoop] = useState(false);
   const [zoom, setZoom] = useState(0);
+  const [audioVolume, setAudioVolume] = useState(100);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
@@ -157,6 +159,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
         setLoading(false);
         return;
       }
+      wavesurfer.setVolume(audioVolume / 100);
       setDuration(trackDuration);
       setSelection({ start: 0, end: trackDuration });
       setDecodedBuffer(buffer);
@@ -193,6 +196,13 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     const unsubscribeRegion = regions.on("region-updated", (region) => {
       setSelection({ start: region.start, end: Math.max(region.start + 0.1, region.end) });
     });
+    const unsubscribeRegionCreated = regions.on("region-created", (region) => {
+      if (region.id !== "loop-drag-selection" || !loopRef.current) return;
+      region.setOptions({ id: "analysis-range" });
+      regionRef.current?.remove();
+      regionRef.current = region;
+      setSelection({ start: region.start, end: Math.max(region.start + 0.1, region.end) });
+    });
     const unsubscribeRegionOut = regions.on("region-out", (region) => {
       if (region.id !== "analysis-range") return;
       if (loopRef.current && region) region.play();
@@ -206,6 +216,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       unsubscribeFinish();
       unsubscribeInteraction();
       unsubscribeRegion();
+      unsubscribeRegionCreated();
       unsubscribeRegionOut();
       waveSurferRef.current = null;
       regionsRef.current = null;
@@ -217,6 +228,8 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       void audioContext?.close();
       wavesurfer.destroy();
       URL.revokeObjectURL(objectUrl);
+      disableDragSelectionRef.current?.();
+      disableDragSelectionRef.current = null;
     };
   }, [file]);
 
@@ -378,6 +391,12 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     }
   };
 
+  const setPlaybackVolume = (value: number) => {
+    const nextVolume = Math.max(0, Math.min(100, value));
+    setAudioVolume(nextVolume);
+    waveSurferRef.current?.setVolume(nextVolume / 100);
+  };
+
   const chooseFile = (nextFile: File | undefined) => {
     if (!nextFile) return;
     selectFileSource();
@@ -440,7 +459,18 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
         });
       }
       if (waveSurferRef.current?.isPlaying()) regionRef.current?.play();
+      if (regions && !disableDragSelectionRef.current) {
+        disableDragSelectionRef.current = regions.enableDragSelection({
+          id: "loop-drag-selection",
+          minLength: 0.1,
+          drag: true,
+          resize: true,
+          color: "rgba(255, 95, 80, 0.16)",
+        });
+      }
     } else {
+      disableDragSelectionRef.current?.();
+      disableDragSelectionRef.current = null;
       regionRef.current?.remove();
       regionRef.current = null;
     }
@@ -463,6 +493,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     setPlaying(false);
     setLoop(false);
     setZoom(0);
+    setAudioVolume(100);
     setError(null);
     setWarning(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -520,6 +551,20 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
             <small>{loop && selection ? `${(selection.end - selection.start).toFixed(2)} sec` : ""}</small>
           </div>
           <div className="toolbar-sliders">
+            <label className="audio-volume-control">
+              <span>Audio</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={audioVolume}
+                disabled={!file}
+                aria-label="Audio playback volume"
+                title={`Audio playback volume: ${audioVolume}%`}
+                onChange={(event) => setPlaybackVolume(Number(event.target.value))}
+              />
+              <output>{audioVolume}%</output>
+            </label>
             <label className="zoom-control">
               <span>Zoom</span>
               <input

@@ -759,7 +759,7 @@ button:disabled {
   position: absolute;
   z-index: 2;
   top: 0;
-  width: 4.3%;
+  width: 7.5%;
   height: 61%;
   transform: translateX(-50%);
   border: 1px solid #090a0c;
@@ -1734,6 +1734,32 @@ button:disabled {
   justify-self: end;
   display: grid;
   gap: 7px;
+}
+
+.audio-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8d949e;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.audio-volume-control input {
+  width: 110px;
+  accent-color: var(--accent);
+}
+
+.audio-volume-control output {
+  width: 30px;
+  color: #c2c7ce;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 8px;
+  text-align: right;
+}
+
+.audio-volume-control input:disabled {
+  opacity: 0.35;
 }
 
 .zoom-control input {
