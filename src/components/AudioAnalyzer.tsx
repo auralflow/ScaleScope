@@ -19,6 +19,9 @@ interface AudioAnalyzerProps {
   previewed: ReadonlySet<PitchClass>;
   onToggle: (note: PitchClass) => void;
   onDetected: (notes: readonly PitchClass[]) => void;
+  auditionEnabled: boolean;
+  onAudition: (frequency: number) => void;
+  onAuditionEnd: () => void;
 }
 
 type SpectrumSource = "file" | "microphone";
@@ -30,7 +33,7 @@ function formatTime(seconds: number): string {
   return `${minutes}:${rest.toFixed(3).padStart(6, "0")}`;
 }
 
-export function AudioAnalyzer({ selected, previewed, onToggle, onDetected }: AudioAnalyzerProps) {
+export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, auditionEnabled, onAudition, onAuditionEnd }: AudioAnalyzerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const waveformRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -45,10 +48,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected }: Aud
   const microphoneAnalyserRef = useRef<AnalyserNode | null>(null);
   const microphoneSinkRef = useRef<GainNode | null>(null);
   const microphoneJobRef = useRef(0);
-  const auditionContextRef = useRef<AudioContext | null>(null);
-  const auditionOscillatorRef = useRef<OscillatorNode | null>(null);
-  const auditionGainRef = useRef<GainNode | null>(null);
-  const auditionVolumeRef = useRef(0.2);
   const loopRef = useRef(false);
   const jobRef = useRef(0);
 
@@ -68,7 +67,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected }: Aud
   const [spectrumSource, setSpectrumSource] = useState<SpectrumSource>("file");
   const [loop, setLoop] = useState(false);
   const [zoom, setZoom] = useState(0);
-  const [auditionVolume, setAuditionVolume] = useState(20);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
@@ -223,10 +221,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected }: Aud
   }, [file]);
 
   useEffect(() => () => {
-    auditionOscillatorRef.current?.stop();
-    auditionOscillatorRef.current = null;
-    void auditionContextRef.current?.close();
-    auditionContextRef.current = null;
     microphoneJobRef.current += 1;
     microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
     microphoneSourceRef.current?.disconnect();
@@ -304,7 +298,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected }: Aud
 
     const requestId = ++microphoneJobRef.current;
     waveSurferRef.current?.pause();
-    stopAudition();
+    onAuditionEnd();
     setSpectrumSource("microphone");
     setMicrophoneStarting(true);
     setError(null);
@@ -452,52 +446,9 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected }: Aud
     }
   };
 
-  const setToneVolume = (value: number) => {
-    setAuditionVolume(value);
-    auditionVolumeRef.current = value / 100;
-    const context = auditionContextRef.current;
-    const gain = auditionGainRef.current;
-    if (context && gain) gain.gain.setTargetAtTime(value / 100, context.currentTime, 0.01);
-  };
-
-  const auditionNote = (frequency: number) => {
-    let context = auditionContextRef.current;
-    if (!context || context.state === "closed") {
-      context = new AudioContext();
-      auditionContextRef.current = context;
-    }
-    if (context.state === "suspended") void context.resume();
-
-    let oscillator = auditionOscillatorRef.current;
-    if (!oscillator) {
-      oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = "sine";
-      gain.gain.setValueAtTime(0.0001, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, auditionVolumeRef.current), context.currentTime + 0.012);
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start();
-      auditionOscillatorRef.current = oscillator;
-      auditionGainRef.current = gain;
-    }
-    oscillator.frequency.setTargetAtTime(frequency, context.currentTime, 0.008);
-  };
-
-  const stopAudition = () => {
-    const context = auditionContextRef.current;
-    const oscillator = auditionOscillatorRef.current;
-    const gain = auditionGainRef.current;
-    if (!context || !oscillator || !gain) return;
-    gain.gain.cancelScheduledValues(context.currentTime);
-    gain.gain.setTargetAtTime(0.0001, context.currentTime, 0.008);
-    oscillator.stop(context.currentTime + 0.045);
-    auditionOscillatorRef.current = null;
-    auditionGainRef.current = null;
-  };
-
   const deleteAudio = () => {
     waveSurferRef.current?.pause();
-    stopAudition();
+    onAuditionEnd();
     jobRef.current += 1;
     loopRef.current = false;
     setFile(null);
@@ -611,10 +562,9 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected }: Aud
         onDraggingChange={setDragging}
         onFileDrop={chooseFile}
         onChooseFile={() => fileInputRef.current?.click()}
-        onAudition={auditionNote}
-        onAuditionEnd={stopAudition}
-        auditionVolume={auditionVolume}
-        onAuditionVolumeChange={setToneVolume}
+        auditionEnabled={auditionEnabled}
+        onAudition={onAudition}
+        onAuditionEnd={onAuditionEnd}
         onDetected={onDetected}
       />
     </section>

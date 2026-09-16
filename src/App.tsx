@@ -6,6 +6,7 @@ import { GuitarFretboard } from "./components/GuitarFretboard";
 import { PianoKeyboard } from "./components/PianoKeyboard";
 import { ScaleResults } from "./components/ScaleResults";
 import { NOTE_NAMES, type PitchClass } from "./music";
+import { useNoteAudition } from "./use-note-audition";
 import {
   commitSelection as commitSelectionHistory,
   createSelectionHistory,
@@ -19,6 +20,7 @@ export default function App() {
   const [history, setHistory] = useState(createSelectionHistory);
   const [previewed, setPreviewed] = useState<Set<PitchClass>>(() => new Set());
   const [resetWorkspaceLayout, setResetWorkspaceLayout] = useState<(() => void) | null>(null);
+  const noteAudition = useNoteAudition();
   const selected = history.present;
 
   const commitSelection = useCallback((update: SelectionUpdate) => {
@@ -87,7 +89,7 @@ export default function App() {
             <span className="brand-mark"><i /><i /><i /></span>
             <span>
               <strong>SCALESCOPE</strong>
-              <small>KORG ELECTRIBE 2</small>
+              <small>SCALE &amp; SPECTRUM TOOL</small>
             </span>
           </a>
           <div className="header-status">
@@ -124,6 +126,37 @@ export default function App() {
             >
               Reset layout
             </button>
+            <div className="header-note-audition">
+              <span>Note audition</span>
+              <button
+                type="button"
+                className={`speaker-toggle ${noteAudition.enabled ? "is-active" : ""}`}
+                aria-label={noteAudition.enabled ? "Mute note audition" : "Enable note audition"}
+                aria-pressed={noteAudition.enabled}
+                title={noteAudition.enabled ? "Note audition on — click to mute" : "Note audition muted — click to enable"}
+                onClick={() => noteAudition.setAuditionEnabled(!noteAudition.enabled)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+                  {noteAudition.enabled ? (
+                    <><path d="M16 9.2c1.1 1.5 1.1 4.1 0 5.6" /><path d="M18.7 6.6c2.4 3 2.4 7.8 0 10.8" /></>
+                  ) : (
+                    <path d="m16.2 9.1 5.4 5.4m0-5.4-5.4 5.4" />
+                  )}
+                </svg>
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={noteAudition.volume}
+                disabled={!noteAudition.enabled}
+                aria-label="Note audition volume"
+                title={`Note audition volume: ${noteAudition.volume}%`}
+                onChange={(event) => noteAudition.setAuditionVolume(Number(event.target.value))}
+              />
+              <output>{noteAudition.volume}%</output>
+            </div>
           </div>
         </div>
       </header>
@@ -154,7 +187,14 @@ export default function App() {
                 <span className="selected-count">{selected.size}/12</span>
               </div>
 
-              <PianoKeyboard selected={selected} previewed={previewed} onToggle={toggleNote} />
+              <PianoKeyboard
+                selected={selected}
+                previewed={previewed}
+                onToggle={toggleNote}
+                auditionEnabled={noteAudition.enabled}
+                onAudition={noteAudition.audition}
+                onAuditionEnd={noteAudition.stop}
+              />
             </section>
           ),
           guitar: <GuitarFretboard selected={selected} previewed={previewed} onToggle={toggleNote} />,
@@ -196,6 +236,9 @@ export default function App() {
               previewed={previewed}
               onToggle={toggleNote}
               onDetected={applyDetectedNotes}
+              auditionEnabled={noteAudition.enabled}
+              onAudition={noteAudition.audition}
+              onAuditionEnd={noteAudition.stop}
             />
           ),
           }}

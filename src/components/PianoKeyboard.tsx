@@ -1,9 +1,13 @@
+import { midiToFrequency } from "../audio-math";
 import { NOTE_NAMES, asPitchClass, type PitchClass } from "../music";
 
 interface PianoKeyboardProps {
   selected: ReadonlySet<PitchClass>;
   previewed: ReadonlySet<PitchClass>;
   onToggle: (note: PitchClass) => void;
+  auditionEnabled: boolean;
+  onAudition: (frequency: number) => void;
+  onAuditionEnd: () => void;
 }
 
 const WHITE_CLASSES = new Set([0, 2, 4, 5, 7, 9, 11]);
@@ -15,7 +19,7 @@ function octaveForMidi(midi: number): number {
   return Math.floor(midi / 12) - 1;
 }
 
-export function PianoKeyboard({ selected, previewed, onToggle }: PianoKeyboardProps) {
+export function PianoKeyboard({ selected, previewed, onToggle, auditionEnabled, onAudition, onAuditionEnd }: PianoKeyboardProps) {
   return (
     <div className="manual-piano" role="group" aria-label="Select notes on the virtual keyboard">
       <div className="manual-white-keys">
@@ -28,6 +32,14 @@ export function PianoKeyboard({ selected, previewed, onToggle }: PianoKeyboardPr
               className={`manual-key manual-key--white ${selected.has(note) ? "is-selected" : ""} ${previewed.has(note) && !selected.has(note) ? "is-previewed" : ""}`}
               aria-pressed={selected.has(note)}
               aria-label={`${NOTE_NAMES[note]}, octave ${octaveForMidi(midi)}`}
+              onPointerDown={() => {
+                if (auditionEnabled) onAudition(midiToFrequency(midi));
+              }}
+              onPointerUp={onAuditionEnd}
+              onPointerCancel={onAuditionEnd}
+              onPointerLeave={(event) => {
+                if (event.buttons === 1) onAuditionEnd();
+              }}
               onClick={() => onToggle(note)}
             >
               <span>{note === 0 ? `C${octaveForMidi(midi)}` : NOTE_NAMES[note]}</span>
@@ -47,6 +59,14 @@ export function PianoKeyboard({ selected, previewed, onToggle }: PianoKeyboardPr
             style={{ left: `${left}%` }}
             aria-pressed={selected.has(note)}
             aria-label={`${NOTE_NAMES[note]}, octave ${octaveForMidi(midi)}`}
+            onPointerDown={() => {
+              if (auditionEnabled) onAudition(midiToFrequency(midi));
+            }}
+            onPointerUp={onAuditionEnd}
+            onPointerCancel={onAuditionEnd}
+            onPointerLeave={(event) => {
+              if (event.buttons === 1) onAuditionEnd();
+            }}
             onClick={() => onToggle(note)}
           >
             <span>{NOTE_NAMES[note].split("/")[0]}</span>

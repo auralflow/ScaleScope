@@ -34,10 +34,9 @@ interface SpectrumViewProps {
   onDraggingChange: (dragging: boolean) => void;
   onFileDrop: (file: File | undefined) => void;
   onChooseFile: () => void;
+  auditionEnabled: boolean;
   onAudition: (frequency: number) => void;
   onAuditionEnd: () => void;
-  auditionVolume: number;
-  onAuditionVolumeChange: (value: number) => void;
   onDetected: (notes: readonly PitchClass[]) => void;
 }
 
@@ -102,10 +101,9 @@ export function SpectrumView({
   onDraggingChange,
   onFileDrop,
   onChooseFile,
+  auditionEnabled,
   onAudition,
   onAuditionEnd,
-  auditionVolume,
-  onAuditionVolumeChange,
   onDetected,
 }: SpectrumViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -114,7 +112,6 @@ export function SpectrumView({
   const detectorReadoutRef = useRef<HTMLSpanElement>(null);
   const auditioningRef = useRef(false);
   const [hover, setHover] = useState<HoverInfo | null>(null);
-  const [auditionEnabled, setAuditionEnabled] = useState(true);
   const [pinkTiltEnabled, setPinkTiltEnabled] = useState(true);
   const [detectionSensitivity, setDetectionSensitivity] = useState(55);
   const [detectMessage, setDetectMessage] = useState("Detect notes from the current spectrum");
@@ -369,42 +366,6 @@ export function SpectrumView({
             />
             <output>{detectionSensitivity}%</output>
           </label>
-          <div className="spectrum-audition-control">
-            <button
-              type="button"
-              className={`speaker-toggle ${auditionEnabled ? "is-active" : ""}`}
-              aria-label={auditionEnabled ? "Mute note audition" : "Enable note audition"}
-              aria-pressed={auditionEnabled}
-              title={auditionEnabled ? "Note audition on — click to mute" : "Note audition muted — click to enable"}
-              onClick={() => {
-                const enabled = !auditionEnabled;
-                setAuditionEnabled(enabled);
-                if (!enabled) {
-                  auditioningRef.current = false;
-                  onAuditionEnd();
-                }
-              }}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 9v6h4l5 4V5L8 9H4Z" />
-                {auditionEnabled ? (
-                  <><path d="M16 9.2c1.1 1.5 1.1 4.1 0 5.6" /><path d="M18.7 6.6c2.4 3 2.4 7.8 0 10.8" /></>
-                ) : (
-                  <path d="m16.2 9.1 5.4 5.4m0-5.4-5.4 5.4" />
-                )}
-              </svg>
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={auditionVolume}
-              disabled={!auditionEnabled}
-              aria-label="Note audition volume"
-              title={`Note audition volume: ${auditionVolume}%`}
-              onChange={(event) => onAuditionVolumeChange(Number(event.target.value))}
-            />
-          </div>
         </div>
         <span className="spectrum-toolbar__message">{detectMessage}</span>
         <button

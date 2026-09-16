@@ -64,7 +64,8 @@ In both modes:
 • Semi-transparent white vertical gradients show the individual spectrum peaks currently considered note candidates by the detector.
 • Sensitivity controls detector strictness from −100% to +100%. Negative values are stricter than the former zero position; positive values admit quieter and less prominent peaks.
 • Detect selects the pitch classes of the shown candidates. The same note is then highlighted in every octave on the keyboard, so there can be more highlighted physical keys than vertical lines.
-• Hold a note area on the spectrum to hear a sine tone at that note. Adjust its level with the slider beside the speaker icon; the speaker icon turns audition on or off.
+• The Note audition control in the header turns the sine tone on or off and sets its level.
+• Hold a note area on the spectrum, or hold a key on the Keys keyboard, to hear that note's sine tone.
 
 
 Customizing the interface

@@ -187,6 +187,29 @@ input:focus-visible {
   font-size: 9px;
 }
 
+.header-note-audition {
+  display: grid;
+  grid-template-columns: auto 31px minmax(58px, 76px) 28px;
+  align-items: center;
+  gap: 6px;
+  color: #aab0b9;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.header-note-audition input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.header-note-audition output {
+  color: #c2c7ce;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 8px;
+  text-align: right;
+}
+
 .workspace-status {
   display: inline-flex;
   align-items: center;
@@ -1916,14 +1939,6 @@ button:disabled {
   text-align: right;
 }
 
-.spectrum-audition-control {
-  min-width: 105px;
-  display: grid;
-  grid-template-columns: 31px minmax(62px, 1fr);
-  align-items: center;
-  gap: 7px;
-}
-
 .speaker-toggle {
   width: 31px;
   padding: 0;
@@ -1945,7 +1960,7 @@ button:disabled {
   fill: none;
 }
 
-.spectrum-audition-control input:disabled {
+.header-note-audition input:disabled {
   opacity: 0.28;
 }
 
