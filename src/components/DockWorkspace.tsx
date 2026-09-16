@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_DOCK_LAYOUT,
   PANEL_IDS,
@@ -17,7 +17,7 @@ import {
 
 interface DockWorkspaceProps {
   panels: Record<PanelId, ReactNode>;
-  actions?: ReactNode;
+  onResetLayoutReady?: (reset: (() => void) | null) => void;
 }
 
 interface StackFrame {
@@ -91,7 +91,7 @@ function dropLabel(placement: DockPlacement): string {
   return `Dock ${placement}`;
 }
 
-export function DockWorkspace({ panels, actions }: DockWorkspaceProps) {
+export function DockWorkspace({ panels, onResetLayoutReady }: DockWorkspaceProps) {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState(loadLayout);
   const [draggedPanel, setDraggedPanel] = useState<PanelId | null>(null);
@@ -99,6 +99,15 @@ export function DockWorkspace({ panels, actions }: DockWorkspaceProps) {
   const [dropTarget, setDropTarget] = useState<{ stackId: string; placement: DockPlacement } | null>(null);
   const frames = buildFrames(layout);
   const totalHeight = layout.rows.reduce((sum, row) => sum + row.height, 0) + ROW_GAP * (layout.rows.length - 1);
+
+  const resetLayout = useCallback(() => {
+    setLayout(normalizeDockLayout(DEFAULT_DOCK_LAYOUT));
+  }, []);
+
+  useEffect(() => {
+    onResetLayoutReady?.(resetLayout);
+    return () => onResetLayoutReady?.(null);
+  }, [onResetLayoutReady, resetLayout]);
 
   useEffect(() => {
     try {
@@ -207,23 +216,6 @@ export function DockWorkspace({ panels, actions }: DockWorkspaceProps) {
 
   return (
     <section className="dock-area" aria-label="Customizable workspace">
-      <div className="dock-toolbar">
-        <div className="dock-toolbar__guide">
-          <span className="dock-toolbar__status"><i /> CUSTOM WORKSPACE</span>
-          <span>Drag a tab to move it. Drop in the center to group panels. Drag panel edges to resize.</span>
-        </div>
-        <div className="dock-toolbar__actions">
-          {actions}
-          <button
-            type="button"
-            className="dock-reset"
-            onClick={() => setLayout(normalizeDockLayout(DEFAULT_DOCK_LAYOUT))}
-          >
-            Reset layout
-          </button>
-        </div>
-      </div>
-
       <div
         ref={workspaceRef}
         className={`dock-workspace ${draggedPanel ? "is-dragging-panel" : ""}`}

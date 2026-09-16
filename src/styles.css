@@ -56,14 +56,18 @@ input:focus-visible {
   position: sticky;
   top: 0;
   z-index: 50;
-  height: 74px;
+  min-height: 106px;
   padding: 0 max(28px, calc((100vw - 1480px) / 2));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   border-bottom: 1px solid var(--line);
   background: rgba(9, 10, 12, 0.88);
   backdrop-filter: blur(20px);
+}
+
+.app-header__primary {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .brand {
@@ -123,21 +127,6 @@ input:focus-visible {
   letter-spacing: 0.06em;
 }
 
-.offline-pill {
-  padding: 7px 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid rgba(110, 231, 162, 0.22);
-  border-radius: 999px;
-  color: #b8f3d1;
-  background: rgba(110, 231, 162, 0.06);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.15em;
-}
-
-.offline-pill i,
 .privacy-note span {
   width: 6px;
   height: 6px;
@@ -156,38 +145,33 @@ input:focus-visible {
   width: 100%;
 }
 
-.dock-toolbar {
-  position: sticky;
-  top: 74px;
-  z-index: 49;
-  min-height: 54px;
-  margin-bottom: 14px;
-  padding: 10px 13px 10px 16px;
+.header-workspace {
+  min-height: 44px;
+  padding: 7px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border-top: 1px solid var(--line);
   color: #777d87;
-  background: rgba(14, 16, 20, 0.94);
-  backdrop-filter: blur(20px);
   font-size: 9px;
 }
 
-.dock-toolbar__guide {
+.header-workspace__guide {
   display: flex;
   align-items: center;
   gap: 15px;
+  min-width: 0;
 }
 
-.dock-toolbar__actions {
+.header-workspace__actions {
   display: flex;
   align-items: center;
   gap: 7px;
+  flex: 0 0 auto;
 }
 
-.dock-toolbar__actions .clear-button {
+.header-workspace__actions .clear-button {
   height: 30px;
   padding: 0 10px;
   border: 1px solid var(--line);
@@ -197,13 +181,13 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-.dock-toolbar__actions .history-button {
+.header-workspace__actions .history-button {
   height: 30px;
   padding: 0 10px;
   font-size: 9px;
 }
 
-.dock-toolbar__status {
+.workspace-status {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -215,7 +199,7 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-.dock-toolbar__status i {
+.workspace-status i {
   width: 6px;
   height: 6px;
   border-radius: 2px;
@@ -237,6 +221,17 @@ input:focus-visible {
 .dock-reset:hover {
   border-color: rgba(255, 95, 80, 0.38);
   color: #ffd0ca;
+}
+
+.dock-reset:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+@media (max-width: 1240px) {
+  .workspace-guide {
+    display: none;
+  }
 }
 
 .dock-workspace {

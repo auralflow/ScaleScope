@@ -18,6 +18,7 @@ type SelectionUpdate = Iterable<number> | ((current: ReadonlySet<PitchClass>) =>
 export default function App() {
   const [history, setHistory] = useState(createSelectionHistory);
   const [previewed, setPreviewed] = useState<Set<PitchClass>>(() => new Set());
+  const [resetWorkspaceLayout, setResetWorkspaceLayout] = useState<(() => void) | null>(null);
   const selected = history.present;
 
   const commitSelection = useCallback((update: SelectionUpdate) => {
@@ -55,6 +56,10 @@ export default function App() {
     setPreviewed(new Set());
   }, []);
 
+  const handleWorkspaceResetReady = useCallback((reset: (() => void) | null) => {
+    setResetWorkspaceLayout(() => reset);
+  }, []);
+
   useEffect(() => {
     const handleHistoryShortcut = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
@@ -77,41 +82,55 @@ export default function App() {
   return (
     <main>
       <header className="app-header">
-        <a className="brand" href="#top" aria-label="ScaleScope, back to top">
-          <span className="brand-mark"><i /><i /><i /></span>
-          <span>
-            <strong>SCALESCOPE</strong>
-            <small>KORG ELECTRIBE 2</small>
-          </span>
-        </a>
-        <div className="header-status">
-          <span className="offline-pill"><i /> OFFLINE</span>
-          <span className="version">35 scales · 12 keys</span>
+        <div className="app-header__primary">
+          <a className="brand" href="#top" aria-label="ScaleScope, back to top">
+            <span className="brand-mark"><i /><i /><i /></span>
+            <span>
+              <strong>SCALESCOPE</strong>
+              <small>KORG ELECTRIBE 2</small>
+            </span>
+          </a>
+          <div className="header-status">
+            <span className="version">35 scales · 12 keys</span>
+          </div>
+        </div>
+        <div className="header-workspace">
+          <div className="header-workspace__guide">
+            <span className="workspace-status"><i /> CUSTOM WORKSPACE</span>
+            <span className="workspace-guide">Drag a tab to move it. Drop in the center to group panels. Drag panel edges to resize.</span>
+          </div>
+          <div className="header-workspace__actions">
+            <div className="history-controls" role="group" aria-label="Global selection history">
+              <button type="button" className="history-button" disabled={history.past.length === 0} onClick={undo} title="Undo · Ctrl/Cmd+Z">
+                ↶ Undo
+              </button>
+              <button type="button" className="history-button" disabled={history.future.length === 0} onClick={redo} title="Redo · Ctrl/Cmd+Shift+Z or Ctrl+Y">
+                ↷ Redo
+              </button>
+            </div>
+            <button
+              type="button"
+              className="clear-button"
+              disabled={selected.size === 0}
+              onClick={() => commitSelection([])}
+            >
+              Clear all
+            </button>
+            <button
+              type="button"
+              className="dock-reset"
+              disabled={!resetWorkspaceLayout}
+              onClick={() => resetWorkspaceLayout?.()}
+            >
+              Reset layout
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="app-shell" id="top">
         <DockWorkspace
-          actions={(
-            <>
-              <div className="history-controls" role="group" aria-label="Global selection history">
-                <button type="button" className="history-button" disabled={history.past.length === 0} onClick={undo} title="Undo · Ctrl/Cmd+Z">
-                  ↶ Undo
-                </button>
-                <button type="button" className="history-button" disabled={history.future.length === 0} onClick={redo} title="Redo · Ctrl/Cmd+Shift+Z or Ctrl+Y">
-                  ↷ Redo
-                </button>
-              </div>
-              <button
-                type="button"
-                className="clear-button"
-                disabled={selected.size === 0}
-                onClick={() => commitSelection([])}
-              >
-                Clear all
-              </button>
-            </>
-          )}
+          onResetLayoutReady={handleWorkspaceResetReady}
           panels={{
           keyboard: (
             <section className="note-section" aria-labelledby="notes-title">
