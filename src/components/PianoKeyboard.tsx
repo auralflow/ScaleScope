@@ -11,7 +11,7 @@ interface PianoKeyboardProps {
 }
 
 const WHITE_CLASSES = new Set([0, 2, 4, 5, 7, 9, 11]);
-const keys = Array.from({ length: 25 }, (_, index) => 48 + index);
+const keys = Array.from({ length: 13 }, (_, index) => 60 + index);
 const whiteKeys = keys.filter((midi) => WHITE_CLASSES.has(asPitchClass(midi)));
 const blackKeys = keys.filter((midi) => !WHITE_CLASSES.has(asPitchClass(midi)));
 

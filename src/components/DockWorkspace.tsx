@@ -242,7 +242,6 @@ export function DockWorkspace({ panels, onResetLayoutReady }: DockWorkspaceProps
               aria-label={PANEL_LABELS[panelId].title}
             >
               <nav className="dock-tabs" aria-label={`${PANEL_LABELS[panelId].title} tabs`}>
-                <span className="dock-grip" aria-hidden="true">⠿</span>
                 {frame.stack.panels.map((tab) => (
                   <button
                     type="button"
@@ -254,6 +253,7 @@ export function DockWorkspace({ panels, onResetLayoutReady }: DockWorkspaceProps
                     }}
                     onPointerDown={(event) => startPanelDrag(event, tab, frame.stack.id)}
                   >
+                    <span className="dock-grip" aria-hidden="true">⠿</span>
                     {PANEL_LABELS[tab].short}
                   </button>
                 ))}

@@ -189,7 +189,7 @@ input:focus-visible {
 
 .header-note-audition {
   display: grid;
-  grid-template-columns: auto 31px minmax(58px, 76px) 28px;
+  grid-template-columns: 31px minmax(58px, 76px) 28px;
   align-items: center;
   gap: 6px;
   color: #aab0b9;
@@ -299,6 +299,11 @@ input:focus-visible {
   color: #4f5560;
   font-size: 15px;
   line-height: 1;
+}
+
+.dock-tab .dock-grip {
+  display: inline-block;
+  vertical-align: -1px;
 }
 
 .dock-tab {

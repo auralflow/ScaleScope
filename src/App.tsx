@@ -127,7 +127,6 @@ export default function App() {
               Reset layout
             </button>
             <div className="header-note-audition">
-              <span>Note audition</span>
               <button
                 type="button"
                 className={`speaker-toggle ${noteAudition.enabled ? "is-active" : ""}`}
