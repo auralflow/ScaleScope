@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import WaveSurfer from "wavesurfer.js";
 import Minimap from "wavesurfer.js/dist/plugins/minimap.esm.js";
 import Regions from "wavesurfer.js/dist/plugins/regions.esm.js";
@@ -41,7 +41,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const waveSurferRef = useRef<WaveSurfer | null>(null);
   const regionsRef = useRef<ReturnType<typeof Regions.create> | null>(null);
   const regionRef = useRef<ReturnType<ReturnType<typeof Regions.create>["addRegion"]> | null>(null);
-  const disableDragSelectionRef = useRef<(() => void) | null>(null);
+  const loopDragRef = useRef<{ pointerId: number; start: number; end: number } | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const microphoneContextRef = useRef<AudioContext | null>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
@@ -100,13 +100,14 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       height: 112,
       waveColor: "#4a4f59",
       progressColor: "#858b96",
-      cursorColor: "#ff5f50",
       cursorWidth: 2,
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
       normalize: true,
-      dragToSeek: true,
+      cursorColor: "#6ee7a2",
+      dragToSeek: false,
+      interact: false,
       minPxPerSec: 0,
       plugins: [
         regions,
@@ -196,13 +197,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     const unsubscribeRegion = regions.on("region-updated", (region) => {
       setSelection({ start: region.start, end: Math.max(region.start + 0.1, region.end) });
     });
-    const unsubscribeRegionCreated = regions.on("region-created", (region) => {
-      if (region.id !== "loop-drag-selection" || !loopRef.current) return;
-      region.setOptions({ id: "analysis-range" });
-      regionRef.current?.remove();
-      regionRef.current = region;
-      setSelection({ start: region.start, end: Math.max(region.start + 0.1, region.end) });
-    });
     const unsubscribeRegionOut = regions.on("region-out", (region) => {
       if (region.id !== "analysis-range") return;
       if (loopRef.current && region) region.play();
@@ -216,7 +210,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       unsubscribeFinish();
       unsubscribeInteraction();
       unsubscribeRegion();
-      unsubscribeRegionCreated();
       unsubscribeRegionOut();
       waveSurferRef.current = null;
       regionsRef.current = null;
@@ -228,8 +221,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       void audioContext?.close();
       wavesurfer.destroy();
       URL.revokeObjectURL(objectUrl);
-      disableDragSelectionRef.current?.();
-      disableDragSelectionRef.current = null;
     };
   }, [file]);
 
@@ -439,6 +430,82 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     setSelection({ start: 0, end: duration });
   };
 
+  const waveformTimeAt = (clientX: number): number | null => {
+    const wavesurfer = waveSurferRef.current;
+    if (!wavesurfer || !duration) return null;
+    const wrapper = wavesurfer.getWrapper();
+    const rect = wrapper.getBoundingClientRect();
+    const totalWidth = wavesurfer.getWidth();
+    if (!rect.width || !totalWidth) return null;
+    const x = clientX - rect.left + wavesurfer.getScroll();
+    return Math.max(0, Math.min(duration, (x / totalWidth) * duration));
+  };
+
+  const drawLoopRange = (first: number, second: number): AudioSelection | null => {
+    if (!duration) return null;
+    let start = Math.max(0, Math.min(first, second));
+    let end = Math.min(duration, Math.max(first, second));
+    if (end - start < 0.1) {
+      if (start + 0.1 <= duration) end = start + 0.1;
+      else start = Math.max(0, end - 0.1);
+    }
+
+    const regions = regionsRef.current;
+    if (!regions) return null;
+    const range = { start, end };
+    if (regionRef.current) regionRef.current.setOptions(range);
+    else {
+      regionRef.current = regions.addRegion({
+        id: "analysis-range",
+        ...range,
+        minLength: 0.1,
+        drag: true,
+        resize: true,
+        color: "rgba(255, 95, 80, 0.16)",
+      });
+    }
+    return range;
+  };
+
+  const beginLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!loop || event.button !== 0) return;
+    const start = waveformTimeAt(event.clientX);
+    if (start === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    loopDragRef.current = { pointerId: event.pointerId, start, end: start };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drawLoopRange(start, start);
+  };
+
+  const moveLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = loopDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const end = waveformTimeAt(event.clientX);
+    if (end === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    drag.end = end;
+    drawLoopRange(drag.start, drag.end);
+  };
+
+  const finishLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = loopDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const end = waveformTimeAt(event.clientX) ?? drag.end;
+    event.preventDefault();
+    event.stopPropagation();
+    const range = drawLoopRange(drag.start, end);
+    if (range) setSelection(range);
+    loopDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const cancelLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (loopDragRef.current?.pointerId !== event.pointerId) return;
+    loopDragRef.current = null;
+  };
+
   const toggleLoopMode = () => {
     const nextLoop = !loop;
     loopRef.current = nextLoop;
@@ -459,18 +526,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
         });
       }
       if (waveSurferRef.current?.isPlaying()) regionRef.current?.play();
-      if (regions && !disableDragSelectionRef.current) {
-        disableDragSelectionRef.current = regions.enableDragSelection({
-          id: "loop-drag-selection",
-          minLength: 0.1,
-          drag: true,
-          resize: true,
-          color: "rgba(255, 95, 80, 0.16)",
-        });
-      }
     } else {
-      disableDragSelectionRef.current?.();
-      disableDragSelectionRef.current = null;
       regionRef.current?.remove();
       regionRef.current = null;
     }
@@ -506,7 +562,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
           <span className="eyebrow">02 · Audio analysis</span>
           <h2 id="audio-title">Spectrum analyzer</h2>
         </div>
-        <div className="privacy-note"><span /> Processed only on this device</div>
       </div>
 
       <input
@@ -582,7 +637,13 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
             </label>
           </div>
         </div>
-        <div className="waveform-frame">
+        <div
+          className={`waveform-frame ${loop ? "is-loop-range-selecting" : ""}`}
+          onPointerDownCapture={beginLoopRangeDrag}
+          onPointerMoveCapture={moveLoopRangeDrag}
+          onPointerUpCapture={finishLoopRangeDrag}
+          onPointerCancelCapture={cancelLoopRangeDrag}
+        >
           {loading && <div className="waveform-loading">Decoding audio…</div>}
           <div ref={waveformRef} className="waveform" />
           <div ref={timelineRef} className="waveform-timeline" />

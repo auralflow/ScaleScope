@@ -1702,7 +1702,8 @@ button:disabled {
 }
 
 .selection-readout span,
-.zoom-control span {
+.zoom-control span,
+.audio-volume-control span {
   color: #666c76;
   font-size: 8px;
   font-weight: 700;
@@ -1732,8 +1733,9 @@ button:disabled {
 
 .toolbar-sliders {
   justify-self: end;
-  display: grid;
-  gap: 7px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
 }
 
 .audio-volume-control {
@@ -1774,6 +1776,11 @@ button:disabled {
   border-inline: 1px solid var(--line);
   background: #0b0d10;
   overflow: hidden;
+}
+
+.waveform-frame.is-loop-range-selecting {
+  cursor: crosshair;
+  touch-action: none;
 }
 
 .waveform-loading {
