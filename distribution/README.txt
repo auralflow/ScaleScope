@@ -27,7 +27,7 @@ Selecting notes
 
 Scale list
 ----------
-• With no notes selected, all 35 Korg Electribe 2 scales are shown in all 12 keys.
+• With no notes selected, all 34 Korg Electribe 2 scales are shown in all 12 keys.
 • Search works by root, scale name, or note. Examples: “F Japanese”, “D Dorian”, “C# Ionian”.
 • Hover over a card to preview its notes on the piano and guitar fretboard.
 • Click a card to select the full scale.
