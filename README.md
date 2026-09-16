@@ -1,10 +1,11 @@
 # ScaleScope
 
-Локальный инструмент для подбора ладов Korg Electribe 2 и ручного анализа
-частотного спектра аудио.
+An offline tool for finding Korg Electribe 2 scales and manually analyzing
+audio frequency spectra.
 
-- `npm run dev` — режим разработки.
-- `npm test` — модульные тесты музыкальной логики.
-- `npm run build` — автономный файл `../OUT/ScaleScope.html`.
+- `npm run dev` — start development mode.
+- `npm test` — run music-logic unit tests.
+- `npm run build` — create the standalone `../OUT/ScaleScope.html` file.
 
-Готовый HTML работает офлайн и не отправляет аудио или другие данные в сеть.
+The finished HTML works offline and never sends audio or other data over the
+network.

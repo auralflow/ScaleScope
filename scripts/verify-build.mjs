@@ -14,7 +14,7 @@ const externalAssets = [
 
 if (externalAssets.length > 0) {
   throw new Error(
-    `Сборка содержит внешние ресурсы: ${externalAssets.map((match) => match[1]).join(", ")}`,
+    `Build contains external resources: ${externalAssets.map((match) => match[1]).join(", ")}`,
   );
 }
 
@@ -25,5 +25,5 @@ await Promise.all([
   copyFile(readmeSource, readmeTarget),
 ]);
 await rm(source);
-console.log(`Готово: ${target}`);
-console.log(`Папка для передачи: ${packageDirectory}`);
+console.log(`Ready: ${target}`);
+console.log(`Distribution folder: ${packageDirectory}`);

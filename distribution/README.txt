@@ -1,87 +1,88 @@
-SCALESCOPE — КАК ПОЛЬЗОВАТЬСЯ
-================================
+SCALESCOPE — USER GUIDE
+=======================
 
-Запуск
+Launch
 ------
-1. Откройте файл «ScaleScope.html» двойным щелчком.
-2. Инструмент откроется в браузере. Устанавливать программы или запускать сервер не нужно.
-3. Для лучшей совместимости используйте актуальную версию Chrome или Safari на macOS.
+1. Open “ScaleScope.html” with a double-click.
+2. The tool opens in your browser. No installation or server is required.
+3. For best compatibility, use a current version of Chrome or Safari on macOS.
 
-Интернет не требуется. Загруженные аудиофайлы обрабатываются только на вашем компьютере и никуда не отправляются.
-
-
-Выбор нот
----------
-• Нажимайте клавиши пианино или позиции на гитарном грифе.
-• Выбранная нота подсвечивается сразу во всех октавах и во всех разделах.
-• Повторное нажатие убирает ноту.
-• Undo / Redo отменяют и возвращают изменения. Горячая клавиша отмены: Ctrl+Z или Cmd+Z.
-• Clear all снимает выбор со всех нот.
+An internet connection is not required. Imported audio is processed only on
+your computer and is never uploaded anywhere.
 
 
-Список скейлов
---------------
-• Без выбранных нот отображаются все 35 ладов Korg Electribe 2 во всех 12 тональностях.
-• Поиск работает по тонике, названию и нотам. Примеры: «F Japanese», «D Dorian», «C# Ionian».
-• Наведите курсор на карточку, чтобы предварительно увидеть ноты на пианино и гитарном грифе.
-• Нажмите карточку, чтобы выбрать полный звукоряд этого лада.
-• Если ноты уже выбраны, список показывает совместимые скейлы. Exact означает точное совпадение.
+Selecting notes
+---------------
+• Click piano keys or positions on the guitar fretboard.
+• A selected note is highlighted in every octave and across all views.
+• Click it again to remove it.
+• Undo / Redo revert and restore changes. Undo shortcut: Ctrl+Z or Cmd+Z.
+• Clear all removes every selected note.
+
+
+Scale list
+----------
+• With no notes selected, all 35 Korg Electribe 2 scales are shown in all 12 keys.
+• Search works by root, scale name, or note. Examples: “F Japanese”, “D Dorian”, “C# Ionian”.
+• Hover over a card to preview its notes on the piano and guitar fretboard.
+• Click a card to select the full scale.
+• When notes are already selected, the list shows compatible scales. Exact means an exact match.
 
 
 Camelot wheel
 -------------
-• Цвет показывает, насколько выбранные ноты совместимы с тональностью.
-• Яркая рамка означает полную совместимость.
-• Наведение предварительно подсвечивает ноты тональности.
-• Нажатие выбирает все ноты тональности и заменяет предыдущий набор.
+• Color shows how compatible the selected notes are with a key.
+• A bright outline means full compatibility.
+• Hovering previews the notes of that key.
+• Clicking selects all notes of that key and replaces the previous selection.
 
 
-Анализ аудио
-------------
-• Переключатель Audio file / Microphone находится над спектром.
+Audio analysis
+--------------
+• The Audio file / Microphone switch is located above the spectrum.
 
-Режим Audio file:
-1. Перетащите аудиофайл в область спектра или нажмите Choose file.
-2. Поддерживаются WAV и MP3. M4A/AAC и FLAC работают, если формат декодируется браузером.
-3. Play / Pause запускает и останавливает воспроизведение. Также можно нажать пробел.
-4. В режиме Loop выделенный диапазон повторяется, а спектр рассчитывается для этого диапазона.
-5. Без Loop спектр показывает текущий участок воспроизведения.
-6. Replace audio заменяет файл, Delete audio удаляет его из текущей сессии.
+Audio file mode:
+1. Drop an audio file onto the spectrum or click Choose file.
+2. WAV and MP3 are supported. M4A/AAC and FLAC work when the browser can decode them.
+3. Play / Pause starts and stops playback. You can also press Space.
+4. In Loop mode, the selected range repeats and the spectrum is calculated for that range.
+5. With Loop off, the spectrum follows the current playback position.
+6. Replace audio switches the file; Delete audio removes it from the current session.
 
-Режим Microphone:
-1. Нажмите Microphone и разрешите браузеру доступ к микрофону.
-2. Входящий сигнал сразу отображается в живом спектре. Звук микрофона не выводится в динамики.
-3. Для остановки микрофона переключитесь обратно на Audio file.
+Microphone mode:
+1. Click Microphone and allow browser access to your microphone.
+2. The incoming signal is shown immediately in the live spectrum. Microphone audio is not played through your speakers.
+3. Switch back to Audio file to stop the microphone.
 
-В обоих режимах:
-• Pink tilt по умолчанию компенсирует наклон −3,01 dB на октаву: высокие октавы получают +3,01 dB/окт, а график повторно нормализуется. Кнопкой Pink tilt можно сравнить компенсированный и исходный спектр.
-• Белые полупрозрачные вертикальные градиенты показывают в реальном времени те конкретные спектральные пики, которые текущая настройка детектора считает нотными кандидатами.
-• Sensitivity задаёт строгость детектора в диапазоне −100…+100%. Отрицательная область строже прежнего нулевого положения; положительная допускает более тихие и менее выраженные пики.
-• Detect выбирает pitch classes показанных кандидатов. Одинаковая нота затем подсвечивается на клавиатуре во всех октавах, поэтому подсвеченных физических клавиш может быть больше, чем вертикальных линий.
-• Нажмите и удерживайте область конкретной ноты на спектре, чтобы услышать синус этой ноты. Громкость регулируется ползунком рядом со значком динамика; значок динамика включает и выключает прослушивание.
-
-
-Настройка интерфейса
--------------------
-• Зажмите название вкладки Keys, Guitar, Scales, Camelot или Audio и перетащите её.
-• Перенос в центр другой панели объединяет панели во вкладки.
-• Перенос к краю размещает панель сверху, снизу, слева или справа.
-• Потяните разделители между панелями, чтобы изменить ширину или высоту.
-• Раскладка сохраняется в браузере автоматически.
-• Reset layout возвращает исходное расположение.
+In both modes:
+• Pink tilt compensates the standard −3.01 dB-per-octave slope by default: higher octaves receive +3.01 dB/oct and the graph is normalized again. Use Pink tilt to compare compensated and raw spectra.
+• Semi-transparent white vertical gradients show the individual spectrum peaks currently considered note candidates by the detector.
+• Sensitivity controls detector strictness from −100% to +100%. Negative values are stricter than the former zero position; positive values admit quieter and less prominent peaks.
+• Detect selects the pitch classes of the shown candidates. The same note is then highlighted in every octave on the keyboard, so there can be more highlighted physical keys than vertical lines.
+• Hold a note area on the spectrum to hear a sine tone at that note. Adjust its level with the slider beside the speaker icon; the speaker icon turns audition on or off.
 
 
-Если что-то не работает
------------------------
-• Если аудиофайл не открывается, попробуйте WAV или MP3 либо другой актуальный браузер.
-• Если микрофон не запускается, разрешите доступ к нему в настройках браузера или macOS и попробуйте снова.
-• Если интерфейс оказался в неудобном состоянии, нажмите Reset layout.
-• После закрытия или обновления страницы аудиофайл нужно выбрать заново.
+Customizing the interface
+-------------------------
+• Hold a Keys, Guitar, Scales, Camelot, or Audio tab and drag it.
+• Dropping in the center of another panel combines panels into tabs.
+• Dropping at an edge places the panel above, below, left, or right.
+• Drag the dividers between panels to change their width or height.
+• The layout is saved automatically in the browser.
+• Reset layout restores the original layout.
 
 
-Содержимое папки
-----------------
-• ScaleScope.html — полностью автономное приложение.
-• README.txt — эта инструкция.
+Troubleshooting
+---------------
+• If an audio file does not open, try WAV or MP3, or use another current browser.
+• If the microphone does not start, allow it in browser or macOS settings and try again.
+• If the interface is in an inconvenient state, click Reset layout.
+• Audio files must be selected again after the page is closed or reloaded.
 
-Папку можно целиком скопировать на другой компьютер или отправить архивом.
+
+Folder contents
+---------------
+• ScaleScope.html — the fully standalone application.
+• README.txt — this guide.
+
+You can copy the complete folder to another computer or send it as an archive.
