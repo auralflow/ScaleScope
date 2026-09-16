@@ -1,0 +1,30 @@
+{
+  "name": "scale-scope",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "test": "node --test src/*.test.ts",
+    "build": "vite build && node scripts/verify-build.mjs"
+  },
+  "dependencies": {
+    "fft.js": "4.0.4",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "wavesurfer.js": "7.12.1"
+  },
+  "devDependencies": {
+    "@rolldown/binding-darwin-arm64": "1.0.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "lightningcss-darwin-arm64": "1.33.0",
+    "typescript": "5.9.3",
+    "vite": "8.0.13",
+    "vite-plugin-singlefile": "2.3.3"
+  }
+}
