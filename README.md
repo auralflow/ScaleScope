@@ -1,7 +1,11 @@
 # ScaleScope
 
-An offline tool for finding Korg Electribe 2 scales and manually analyzing
-audio frequency spectra.
+A browser-based tool for finding Korg Electribe 2 scales and manually
+analyzing audio frequency spectra.
+
+Online version: https://auralflow.github.io/ScaleScope/
+
+The standalone HTML release also works offline and processes audio locally.
 
 - `npm run dev` — start development mode.
 - `npm test` — run music-logic unit tests.

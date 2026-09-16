@@ -7,6 +7,11 @@ Launch
 2. The tool opens in your browser. No installation or server is required.
 3. For best compatibility, use a current version of Chrome or Safari on macOS.
 
+Online version
+--------------
+Open https://auralflow.github.io/ScaleScope/ in a browser to use the hosted
+version without downloading the standalone file.
+
 An internet connection is not required. Imported audio is processed only on
 your computer and is never uploaded anywhere.
 
