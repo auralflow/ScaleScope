@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import { SCALES, findScaleMatches, listScaleOptions, maskFromNotes, transposeScale } from "./music.ts";
 
 const EXPECTED_C: Record<string, number[]> = {
-  Chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   Ionian: [0, 2, 4, 5, 7, 9, 11],
   Dorian: [0, 2, 3, 5, 7, 9, 10],
   Phrygian: [0, 1, 3, 5, 7, 8, 10],
@@ -41,9 +40,9 @@ const EXPECTED_C: Record<string, number[]> = {
 };
 
 describe("Korg scales", () => {
-  it("contains the exact 35 C definitions", () => {
-    assert.equal(SCALES.length, 35);
-    assert.equal(Object.keys(EXPECTED_C).length, 35);
+  it("contains the exact 34 C definitions", () => {
+    assert.equal(SCALES.length, 34);
+    assert.equal(Object.keys(EXPECTED_C).length, 34);
     for (const scale of SCALES) assert.deepEqual(scale.intervals, EXPECTED_C[scale.name]);
   });
 
@@ -84,17 +83,15 @@ describe("Korg scales", () => {
   });
 
   it("groups symmetric roots with identical pitch sets", () => {
-    const chromatic = findScaleMatches(EXPECTED_C.Chromatic).find((match) => match.scale.name === "Chromatic");
     const wholeTone = findScaleMatches(EXPECTED_C["Whole Tone"]).find((match) => match.scale.name === "Whole Tone");
     const minorThird = findScaleMatches(EXPECTED_C["minor 3rd"]).find((match) => match.scale.name === "minor 3rd");
-    assert.equal(chromatic?.roots.length, 12);
     assert.deepEqual(wholeTone?.roots, [0, 2, 4, 6, 8, 10]);
     assert.deepEqual(minorThird?.roots, [0, 3, 6, 9]);
   });
 
   it("lists every scale and root when browsing without selected notes", () => {
     const options = listScaleOptions();
-    assert.equal(options.length, 35 * 12);
+    assert.equal(options.length, 34 * 12);
     const dIonian = options.find((option) => option.scale.name === "Ionian" && option.roots[0] === 2);
     assert.deepEqual(dIonian?.orderedNotes, [2, 4, 6, 7, 9, 11, 1]);
   });

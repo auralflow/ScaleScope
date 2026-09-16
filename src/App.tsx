@@ -91,7 +91,7 @@ export default function App() {
             </span>
           </a>
           <div className="header-status">
-            <span className="version">35 scales · 12 keys</span>
+            <span className="version">34 scales · 12 keys</span>
           </div>
         </div>
         <div className="header-workspace">
@@ -165,7 +165,7 @@ export default function App() {
                   <span className="eyebrow">Results</span>
                   <h2 id="scales-title">Compatible scales</h2>
                 </div>
-                <span className="panel-index">35</span>
+                <span className="panel-index">34</span>
               </div>
               <ScaleResults
                 selected={selected}
