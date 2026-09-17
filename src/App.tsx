@@ -104,10 +104,10 @@ export default function App() {
           <div className="header-workspace__actions">
             <div className="history-controls" role="group" aria-label="Global selection history">
               <button type="button" className="history-button" disabled={history.past.length === 0} onClick={undo} title="Undo · Ctrl/Cmd+Z">
-                ↶ Undo
+                Undo
               </button>
               <button type="button" className="history-button" disabled={history.future.length === 0} onClick={redo} title="Redo · Ctrl/Cmd+Shift+Z or Ctrl+Y">
-                ↷ Redo
+                Redo
               </button>
             </div>
             <button

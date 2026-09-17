@@ -38,10 +38,18 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const waveformRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const minimapRef = useRef<HTMLDivElement>(null);
+  const minimapWaveRef = useRef<HTMLDivElement>(null);
   const waveSurferRef = useRef<WaveSurfer | null>(null);
   const regionsRef = useRef<ReturnType<typeof Regions.create> | null>(null);
   const regionRef = useRef<ReturnType<ReturnType<typeof Regions.create>["addRegion"]> | null>(null);
   const loopDragRef = useRef<{ pointerId: number; start: number; end: number } | null>(null);
+  const minimapResizeRef = useRef<{
+    pointerId: number;
+    edge: "start" | "end";
+    startClientX: number;
+    initialLeft: number;
+    initialWidth: number;
+  } | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const microphoneContextRef = useRef<AudioContext | null>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
@@ -68,6 +76,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const [spectrumSource, setSpectrumSource] = useState<SpectrumSource>("file");
   const [loop, setLoop] = useState(false);
   const [zoom, setZoom] = useState(0);
+  const [minimapViewport, setMinimapViewport] = useState({ left: 0, width: 100 });
   const [audioVolume, setAudioVolume] = useState(100);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -90,7 +99,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   }, [loop]);
 
   useEffect(() => {
-    if (!file || !waveformRef.current || !timelineRef.current || !minimapRef.current) return;
+    if (!file || !waveformRef.current || !timelineRef.current || !minimapWaveRef.current) return;
     const objectUrl = URL.createObjectURL(file);
     const regions = Regions.create();
     regionsRef.current = regions;
@@ -113,7 +122,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
         regions,
         Timeline.create({ container: timelineRef.current, height: 20, style: { color: "#8c929d", fontSize: "10px" } }),
         Minimap.create({
-          container: minimapRef.current,
+          container: minimapWaveRef.current,
           height: 42,
           waveColor: "#33373f",
           progressColor: "#666d78",
@@ -122,6 +131,26 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       ],
     });
     waveSurferRef.current = wavesurfer;
+
+    const updateMinimapViewport = (visibleStartTime?: number, visibleEndTime?: number) => {
+      const trackDuration = wavesurfer.getDuration();
+      if (!trackDuration) return;
+      if (typeof visibleStartTime === "number" && typeof visibleEndTime === "number") {
+        setMinimapViewport({
+          left: Math.max(0, Math.min(100, (visibleStartTime / trackDuration) * 100)),
+          width: Math.max(0, Math.min(100, ((visibleEndTime - visibleStartTime) / trackDuration) * 100)),
+        });
+        return;
+      }
+
+      const wrapper = wavesurfer.getWrapper();
+      const totalWidth = Math.max(wrapper.clientWidth, wrapper.scrollWidth);
+      if (!totalWidth) return;
+      setMinimapViewport({
+        left: Math.max(0, Math.min(100, (wavesurfer.getScroll() / totalWidth) * 100)),
+        width: Math.max(0, Math.min(100, (wrapper.clientWidth / totalWidth) * 100)),
+      });
+    };
 
     let audioContext: AudioContext | null = null;
     let mediaSource: MediaElementAudioSourceNode | null = null;
@@ -165,6 +194,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       setSelection({ start: 0, end: trackDuration });
       setDecodedBuffer(buffer);
       setLoading(false);
+      requestAnimationFrame(() => updateMinimapViewport());
       if (loopRef.current) {
         regionRef.current = regions.addRegion({
           id: "analysis-range",
@@ -194,6 +224,9 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       setPlayheadTime(wavesurfer.getDuration());
     });
     const unsubscribeInteraction = wavesurfer.on("interaction", (time) => setPlayheadTime(time));
+    const unsubscribeScroll = wavesurfer.on("scroll", updateMinimapViewport);
+    const unsubscribeZoom = wavesurfer.on("zoom", () => requestAnimationFrame(() => updateMinimapViewport()));
+    const unsubscribeResize = wavesurfer.on("resize", () => requestAnimationFrame(() => updateMinimapViewport()));
     const unsubscribeRegion = regions.on("region-updated", (region) => {
       setSelection({ start: region.start, end: Math.max(region.start + 0.1, region.end) });
     });
@@ -209,6 +242,9 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       unsubscribePause();
       unsubscribeFinish();
       unsubscribeInteraction();
+      unsubscribeScroll();
+      unsubscribeZoom();
+      unsubscribeResize();
       unsubscribeRegion();
       unsubscribeRegionOut();
       waveSurferRef.current = null;
@@ -435,7 +471,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     if (!wavesurfer || !duration) return null;
     const wrapper = wavesurfer.getWrapper();
     const rect = wrapper.getBoundingClientRect();
-    const totalWidth = wavesurfer.getWidth();
+    const totalWidth = Math.max(wrapper.clientWidth, wrapper.scrollWidth);
     if (!rect.width || !totalWidth) return null;
     const x = clientX - rect.left + wavesurfer.getScroll();
     return Math.max(0, Math.min(duration, (x / totalWidth) * duration));
@@ -468,7 +504,16 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   };
 
   const beginLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!loop || event.button !== 0) return;
+    if (event.button !== 0) return;
+    if (!loop) {
+      const time = waveformTimeAt(event.clientX);
+      if (time === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      waveSurferRef.current?.setTime(time);
+      setPlayheadTime(time);
+      return;
+    }
     const start = waveformTimeAt(event.clientX);
     if (start === null) return;
     event.preventDefault();
@@ -504,6 +549,59 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const cancelLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (loopDragRef.current?.pointerId !== event.pointerId) return;
     loopDragRef.current = null;
+  };
+
+  const setMinimapWindow = (left: number, width: number) => {
+    const wavesurfer = waveSurferRef.current;
+    if (!wavesurfer || !duration) return;
+    const nextLeft = Math.max(0, Math.min(100 - width, left));
+    const nextWidth = Math.max(5, Math.min(100, width));
+    const wrapper = wavesurfer.getWrapper();
+    const viewportWidth = wrapper.clientWidth;
+    const nextZoom = nextWidth >= 99.5 || !viewportWidth
+      ? 0
+      : Math.max(1, Math.min(180, viewportWidth / (duration * (nextWidth / 100))));
+    setMinimapViewport({ left: nextLeft, width: nextWidth });
+    setZoom(nextZoom);
+    wavesurfer.zoom(nextZoom);
+    requestAnimationFrame(() => wavesurfer.setScrollTime((nextLeft / 100) * duration));
+  };
+
+  const beginMinimapResize = (event: ReactPointerEvent<HTMLButtonElement>, edge: "start" | "end") => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    minimapResizeRef.current = {
+      pointerId: event.pointerId,
+      edge,
+      startClientX: event.clientX,
+      initialLeft: minimapViewport.left,
+      initialWidth: minimapViewport.width,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveMinimapResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = minimapResizeRef.current;
+    const minimap = minimapRef.current;
+    if (!resize || resize.pointerId !== event.pointerId || !minimap) return;
+    const rect = minimap.getBoundingClientRect();
+    if (!rect.width) return;
+    event.preventDefault();
+    const offset = ((event.clientX - resize.startClientX) / rect.width) * 100;
+    const initialRight = resize.initialLeft + resize.initialWidth;
+    if (resize.edge === "start") {
+      const left = Math.max(0, Math.min(initialRight - 5, resize.initialLeft + offset));
+      setMinimapWindow(left, initialRight - left);
+    } else {
+      const right = Math.min(100, Math.max(resize.initialLeft + 5, initialRight + offset));
+      setMinimapWindow(resize.initialLeft, right - resize.initialLeft);
+    }
+  };
+
+  const finishMinimapResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (minimapResizeRef.current?.pointerId !== event.pointerId) return;
+    minimapResizeRef.current = null;
   };
 
   const toggleLoopMode = () => {
@@ -648,7 +746,35 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
           <div ref={waveformRef} className="waveform" />
           <div ref={timelineRef} className="waveform-timeline" />
         </div>
-        <div ref={minimapRef} className="waveform-minimap" />
+        <div
+          ref={minimapRef}
+          className="waveform-minimap"
+          onPointerMove={moveMinimapResize}
+          onPointerUp={finishMinimapResize}
+          onPointerCancel={finishMinimapResize}
+        >
+          <div ref={minimapWaveRef} className="waveform-minimap__wave" />
+          {duration > 0 && (
+            <div
+              className="minimap-zoom-window"
+              style={{ left: `${minimapViewport.left}%`, width: `${minimapViewport.width}%` }}
+              aria-label="Visible waveform window"
+            >
+              <button
+                type="button"
+                className="minimap-zoom-handle minimap-zoom-handle--start"
+                aria-label="Resize zoom window from the start"
+                onPointerDown={(event) => beginMinimapResize(event, "start")}
+              />
+              <button
+                type="button"
+                className="minimap-zoom-handle minimap-zoom-handle--end"
+                aria-label="Resize zoom window from the end"
+                onPointerDown={(event) => beginMinimapResize(event, "end")}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <SpectrumView

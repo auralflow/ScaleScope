@@ -1820,11 +1820,59 @@ button:disabled {
 }
 
 .waveform-minimap {
+  position: relative;
   min-height: 43px;
   border: 1px solid var(--line);
   border-radius: 0 0 10px 10px;
   background: #0c0e11;
   overflow: hidden;
+}
+
+.waveform-minimap__wave {
+  position: absolute;
+  inset: 0;
+}
+
+.minimap-zoom-window {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  bottom: 2px;
+  min-width: 5%;
+  box-sizing: border-box;
+  border: 1px solid rgba(110, 231, 162, 0.82);
+  border-radius: 3px;
+  background: rgba(110, 231, 162, 0.08);
+  pointer-events: none;
+}
+
+.minimap-zoom-handle {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  z-index: 1;
+  width: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: rgba(110, 231, 162, 0.5);
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.minimap-zoom-handle:hover,
+.minimap-zoom-handle:focus-visible {
+  background: var(--green);
+  outline: none;
+}
+
+.minimap-zoom-handle--start {
+  left: -5px;
+}
+
+.minimap-zoom-handle--end {
+  right: -5px;
 }
 
 .spectrum-shell {
