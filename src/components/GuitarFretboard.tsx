@@ -1,10 +1,14 @@
 import { GUITAR_MAX_FRET, STANDARD_GUITAR_TUNING, fretWidthRatio, guitarPosition } from "../guitar";
+import { midiToFrequency } from "../audio-math";
 import { NOTE_NAMES, type PitchClass } from "../music";
 
 interface GuitarFretboardProps {
   selected: ReadonlySet<PitchClass>;
   previewed: ReadonlySet<PitchClass>;
   onToggle: (note: PitchClass) => void;
+  auditionEnabled: boolean;
+  onAudition: (frequency: number) => void;
+  onAuditionEnd: () => void;
 }
 
 const FRETS = Array.from({ length: GUITAR_MAX_FRET + 1 }, (_, fret) => fret);
@@ -19,7 +23,7 @@ function shortName(note: PitchClass): string {
   return NOTE_NAMES[note].split("/")[0];
 }
 
-export function GuitarFretboard({ selected, previewed, onToggle }: GuitarFretboardProps) {
+export function GuitarFretboard({ selected, previewed, onToggle, auditionEnabled, onAudition, onAuditionEnd }: GuitarFretboardProps) {
   return (
     <section className="guitar-view" aria-labelledby="guitar-title">
       <div className="guitar-view__heading">
@@ -65,6 +69,14 @@ export function GuitarFretboard({ selected, previewed, onToggle }: GuitarFretboa
                     aria-label={`${NOTE_NAMES[position.pitchClass]}${position.octave}, ${string.label} string, ${fretLabel}`}
                     aria-pressed={isSelected}
                     title={`${NOTE_NAMES[position.pitchClass]}${position.octave} · ${string.label} · ${fretLabel}`}
+                    onPointerDown={() => {
+                      if (auditionEnabled) onAudition(midiToFrequency(position.midi));
+                    }}
+                    onPointerUp={onAuditionEnd}
+                    onPointerCancel={onAuditionEnd}
+                    onPointerLeave={(event) => {
+                      if (event.buttons === 1) onAuditionEnd();
+                    }}
                     onClick={() => onToggle(position.pitchClass)}
                   >
                     <span className="guitar-note">{shortName(position.pitchClass)}</span>

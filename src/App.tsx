@@ -116,7 +116,7 @@ export default function App() {
               disabled={selected.size === 0}
               onClick={() => commitSelection([])}
             >
-              Clear all
+              Clear Notes
             </button>
             <button
               type="button"
@@ -196,7 +196,16 @@ export default function App() {
               />
             </section>
           ),
-          guitar: <GuitarFretboard selected={selected} previewed={previewed} onToggle={toggleNote} />,
+          guitar: (
+            <GuitarFretboard
+              selected={selected}
+              previewed={previewed}
+              onToggle={toggleNote}
+              auditionEnabled={noteAudition.enabled}
+              onAudition={noteAudition.audition}
+              onAuditionEnd={noteAudition.stop}
+            />
+          ),
           scales: (
             <section className="panel scales-panel" aria-labelledby="scales-title">
               <div className="panel-heading">
