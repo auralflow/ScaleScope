@@ -16,6 +16,7 @@ export interface SpectrumWorkerRequest {
   sampleRate: number;
   fftSize: number;
   frameCount: number;
+  frameWeights?: Float32Array;
 }
 
 export interface SpectrumWorkerResponse {
@@ -28,7 +29,13 @@ export interface SpectrumWorkerResponse {
 export const FFT_SIZE = 32768;
 export const FFT_HOP = 8192;
 export const MAX_FRAMES = 512;
+export const LIVE_SMOOTHING_TIME_CONSTANT = 0.68;
+export const LIVE_SMOOTHING_FRAME_COUNT = 8;
 export const PINK_TILT_DB_PER_OCTAVE = 10 * Math.log10(2);
+
+export interface SpectrumPreparationOptions {
+  playbackLike?: boolean;
+}
 
 /**
  * Writes a display/detection spectrum compensated against the canonical pink-noise
@@ -85,18 +92,26 @@ export async function prepareSpectrumFrames(
   buffer: AudioBuffer,
   selection: AudioSelection,
   signal?: AbortSignal,
-): Promise<{ channels: Float32Array[]; frameCount: number }> {
+  options: SpectrumPreparationOptions = {},
+): Promise<{ channels: Float32Array[]; frameCount: number; frameWeights?: Float32Array }> {
   const startSample = Math.max(0, Math.floor(selection.start * buffer.sampleRate));
   const endSample = Math.min(buffer.length, Math.ceil(selection.end * buffer.sampleRate));
   const selectionLength = Math.max(1, endSample - startSample);
   const maxStart = Math.max(startSample, endSample - FFT_SIZE);
   const naturalCount = Math.max(1, Math.floor(Math.max(0, selectionLength - FFT_SIZE) / FFT_HOP) + 1);
-  const frameCount = Math.min(MAX_FRAMES, naturalCount);
-  const positions = Array.from({ length: frameCount }, (_, index) => {
-    if (frameCount === 1) return startSample;
-    if (naturalCount <= MAX_FRAMES) return startSample + index * FFT_HOP;
-    return Math.round(startSample + (index / (frameCount - 1)) * (maxStart - startSample));
-  });
+  const frameCount = options.playbackLike
+    ? Math.min(LIVE_SMOOTHING_FRAME_COUNT, naturalCount)
+    : Math.min(MAX_FRAMES, naturalCount);
+  const positions = options.playbackLike
+    ? Array.from(
+      { length: frameCount },
+      (_, index) => Math.max(startSample, endSample - FFT_SIZE - (frameCount - 1 - index) * FFT_HOP),
+    )
+    : Array.from({ length: frameCount }, (_, index) => {
+      if (frameCount === 1) return startSample;
+      if (naturalCount <= MAX_FRAMES) return startSample + index * FFT_HOP;
+      return Math.round(startSample + (index / (frameCount - 1)) * (maxStart - startSample));
+    });
 
   const channelCount = Math.min(2, buffer.numberOfChannels);
   const packedChannels = Array.from(
@@ -117,5 +132,22 @@ export async function prepareSpectrumFrames(
     if (frameIndex > 0 && frameIndex % 24 === 0) await nextFrame();
   }
 
-  return { channels: packedChannels, frameCount };
+  const frameWeights = options.playbackLike
+    ? Float32Array.from(
+      { length: frameCount },
+      (_, index) => (1 - LIVE_SMOOTHING_TIME_CONSTANT) * LIVE_SMOOTHING_TIME_CONSTANT ** (frameCount - 1 - index),
+    )
+    : undefined;
+
+  return { channels: packedChannels, frameCount, frameWeights };
+}
+
+/**
+ * Returns the backward-looking window needed to approximate an AnalyserNode
+ * frame at a stopped playhead, including its short exponential history.
+ */
+export function playbackLikeSelection(playheadTime: number, duration: number, sampleRate: number): AudioSelection {
+  const end = Math.max(0.1, Math.min(duration, playheadTime));
+  const lookback = (FFT_SIZE + (LIVE_SMOOTHING_FRAME_COUNT - 1) * FFT_HOP) / sampleRate;
+  return { start: Math.max(0, end - lookback), end };
 }

@@ -38,6 +38,7 @@ interface SpectrumViewProps {
   onAudition: (frequency: number) => void;
   onAuditionEnd: () => void;
   onDetected: (notes: readonly PitchClass[]) => void;
+  onLiveSpectrumFrame: (frame: SpectrumResult) => void;
 }
 
 interface HoverInfo {
@@ -105,6 +106,7 @@ export function SpectrumView({
   onAudition,
   onAuditionEnd,
   onDetected,
+  onLiveSpectrumFrame,
 }: SpectrumViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeSpectrumRef = useRef<SpectrumResult | null>(spectrum);
@@ -270,6 +272,12 @@ export function SpectrumView({
           ? Math.max(-90, Math.min(0, liveBins[index] - peak))
           : -90;
       }
+      onLiveSpectrumFrame({
+        bins: liveBins.slice(),
+        sampleRate: liveSpectrum.sampleRate,
+        fftSize: liveSpectrum.fftSize,
+        jobId: -1,
+      });
     };
 
     const animate = (time: number) => {

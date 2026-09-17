@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import WaveSurfer from "wavesurfer.js";
 import Minimap from "wavesurfer.js/dist/plugins/minimap.esm.js";
 import Regions from "wavesurfer.js/dist/plugins/regions.esm.js";
@@ -7,6 +7,8 @@ import SpectrumWorker from "../spectrum.worker?worker&inline";
 import type { PitchClass } from "../music";
 import {
   FFT_SIZE,
+  LIVE_SMOOTHING_TIME_CONSTANT,
+  playbackLikeSelection,
   prepareSpectrumFrames,
   type AudioSelection,
   type SpectrumResult,
@@ -76,6 +78,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const microphoneJobRef = useRef(0);
   const loopRef = useRef(false);
   const jobRef = useRef(0);
+  const liveSpectrumRef = useRef<SpectrumResult | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -84,6 +87,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const [playheadTime, setPlayheadTime] = useState(0);
   const [decodedBuffer, setDecodedBuffer] = useState<AudioBuffer | null>(null);
   const [spectrum, setSpectrum] = useState<SpectrumResult | null>(null);
+  const [pausedLiveSpectrum, setPausedLiveSpectrum] = useState<SpectrumResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -97,6 +101,10 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const [audioVolume, setAudioVolume] = useState(100);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+
+  const rememberLiveSpectrum = useCallback((frame: SpectrumResult) => {
+    liveSpectrumRef.current = frame;
+  }, []);
 
   const disposeMicrophoneResources = () => {
     microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -182,7 +190,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       mediaSource = audioContext.createMediaElementSource(wavesurfer.getMediaElement());
       analyser = audioContext.createAnalyser();
       analyser.fftSize = FFT_SIZE;
-      analyser.smoothingTimeConstant = 0.68;
+      analyser.smoothingTimeConstant = LIVE_SMOOTHING_TIME_CONSTANT;
       analyser.minDecibels = -100;
       analyser.maxDecibels = -10;
       mediaSource.connect(analyser);
@@ -199,6 +207,8 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     setError(null);
     setWarning(null);
     setSpectrum(null);
+    setPausedLiveSpectrum(null);
+    liveSpectrumRef.current = null;
     setDecodedBuffer(null);
     setSelection(null);
     setDuration(0);
@@ -236,10 +246,17 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       setError("Could not decode this audio. Try WAV, MP3, M4A/AAC, or FLAC in another browser.");
       setLoading(false);
     });
-    const unsubscribePlay = wavesurfer.on("play", () => setPlaying(true));
+    const unsubscribePlay = wavesurfer.on("play", () => {
+      setPausedLiveSpectrum(null);
+      setPlaying(true);
+    });
     const unsubscribePause = wavesurfer.on("pause", () => {
       setPlaying(false);
       setPlayheadTime(wavesurfer.getCurrentTime());
+      if (!loopRef.current && liveSpectrumRef.current) {
+        setPausedLiveSpectrum(liveSpectrumRef.current);
+        setBusy(false);
+      }
     });
     const unsubscribeFinish = wavesurfer.on("finish", () => {
       setPlaying(false);
@@ -294,10 +311,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const spectrumSelection = decodedBuffer && selection
     ? loop
       ? selection
-      : {
-          start: Math.max(0, Math.min(decodedBuffer.duration - 0.1, playheadTime - 0.5)),
-          end: Math.min(decodedBuffer.duration, Math.max(0.1, playheadTime + 0.5)),
-        }
+      : playbackLikeSelection(playheadTime, decodedBuffer.duration, decodedBuffer.sampleRate)
     : null;
 
   useEffect(() => {
@@ -322,11 +336,11 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       worker.terminate();
     };
 
-    void prepareSpectrumFrames(decodedBuffer, spectrumSelection, controller.signal)
-      .then(({ channels, frameCount }) => {
+    void prepareSpectrumFrames(decodedBuffer, spectrumSelection, controller.signal, { playbackLike: !loop })
+      .then(({ channels, frameCount, frameWeights }) => {
         if (controller.signal.aborted) return;
         worker.postMessage(
-          { jobId, channels, sampleRate: decodedBuffer.sampleRate, fftSize: FFT_SIZE, frameCount },
+          { jobId, channels, sampleRate: decodedBuffer.sampleRate, fftSize: FFT_SIZE, frameCount, frameWeights },
           channels.map((channel) => channel.buffer),
         );
       })
@@ -342,11 +356,13 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       controller.abort();
       worker.terminate();
     };
-  }, [decodedBuffer, spectrumSelection?.start, spectrumSelection?.end]);
+  }, [decodedBuffer, loop, spectrumSelection?.start, spectrumSelection?.end]);
 
   const selectFileSource = () => {
     microphoneJobRef.current += 1;
     disposeMicrophoneResources();
+    liveSpectrumRef.current = null;
+    setPausedLiveSpectrum(null);
     setMicrophoneAnalyser(null);
     setMicrophoneStarting(false);
     setSpectrumSource("file");
@@ -396,7 +412,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       source = context.createMediaStreamSource(stream);
       analyser = context.createAnalyser();
       analyser.fftSize = FFT_SIZE;
-      analyser.smoothingTimeConstant = 0.68;
+      analyser.smoothingTimeConstant = LIVE_SMOOTHING_TIME_CONSTANT;
       analyser.minDecibels = -100;
       analyser.maxDecibels = -10;
       sink = context.createGain();
@@ -534,6 +550,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     event.stopPropagation();
 
     if (!loop) {
+      setPausedLiveSpectrum(null);
       waveSurferRef.current?.setTime(time);
       setPlayheadTime(time);
       return;
@@ -584,6 +601,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       const range = drawLoopRange(drag.anchor, end);
       if (range) setSelection(range);
     } else {
+      if (!loopRef.current) setPausedLiveSpectrum(null);
       waveSurferRef.current?.setTime(end);
       setPlayheadTime(end);
     }
@@ -689,6 +707,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     if (gesture.mode === "select" && !gesture.moved) {
       const percent = minimapPercentAt(event.clientX) ?? gesture.startPercent;
       const time = (percent / 100) * duration;
+      if (!loopRef.current) setPausedLiveSpectrum(null);
       waveSurferRef.current?.setTime(time);
       setPlayheadTime(time);
     }
@@ -700,6 +719,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     const nextLoop = !loop;
     loopRef.current = nextLoop;
     setLoop(nextLoop);
+    setPausedLiveSpectrum(null);
 
     if (nextLoop) {
       const regions = regionsRef.current;
@@ -734,6 +754,8 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     setPlayheadTime(0);
     setDecodedBuffer(null);
     setSpectrum(null);
+    setPausedLiveSpectrum(null);
+    liveSpectrumRef.current = null;
     setBusy(false);
     setLoading(false);
     setPlaying(false);
@@ -871,7 +893,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       </div>
 
       <SpectrumView
-        spectrum={spectrum}
+        spectrum={!loop && pausedLiveSpectrum ? pausedLiveSpectrum : spectrum}
         analyser={spectrumSource === "microphone" ? microphoneAnalyser : liveAnalyser}
         live={spectrumSource === "microphone" ? Boolean(microphoneAnalyser) : playing}
         sourceMode={spectrumSource}
@@ -891,6 +913,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
         onAudition={onAudition}
         onAuditionEnd={onAuditionEnd}
         onDetected={onDetected}
+        onLiveSpectrumFrame={rememberLiveSpectrum}
       />
     </section>
   );

@@ -5,7 +5,7 @@ import type { SpectrumWorkerRequest, SpectrumWorkerResponse } from "./spectrum";
 const worker = self as unknown as DedicatedWorkerGlobalScope;
 
 worker.onmessage = (event: MessageEvent<SpectrumWorkerRequest>) => {
-  const { jobId, channels, sampleRate, fftSize, frameCount } = event.data;
+  const { jobId, channels, sampleRate, fftSize, frameCount, frameWeights } = event.data;
   const fft = new FFT(fftSize);
   const input = new Float32Array(fftSize);
   const output = fft.createComplexArray();
@@ -19,6 +19,7 @@ worker.onmessage = (event: MessageEvent<SpectrumWorkerRequest>) => {
   for (const channel of channels) {
     for (let frame = 0; frame < frameCount; frame += 1) {
       const offset = frame * fftSize;
+      const frameWeight = frameWeights?.[frame] ?? 1;
       for (let index = 0; index < fftSize; index += 1) {
         input[index] = channel[offset + index] * window[index];
       }
@@ -26,7 +27,7 @@ worker.onmessage = (event: MessageEvent<SpectrumWorkerRequest>) => {
       for (let bin = 0; bin <= fftSize / 2; bin += 1) {
         const real = output[bin * 2];
         const imaginary = output[bin * 2 + 1];
-        power[bin] += real * real + imaginary * imaginary;
+        power[bin] += (real * real + imaginary * imaginary) * frameWeight;
       }
     }
   }
@@ -43,4 +44,3 @@ worker.onmessage = (event: MessageEvent<SpectrumWorkerRequest>) => {
 };
 
 export {};
-
