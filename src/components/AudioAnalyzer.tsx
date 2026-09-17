@@ -787,6 +787,30 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
       {error && <div className="message message--error">{error}</div>}
       {warning && <div className="message message--warning">{warning}</div>}
 
+      <SpectrumView
+        spectrum={!loop && pausedLiveSpectrum ? pausedLiveSpectrum : spectrum}
+        analyser={spectrumSource === "microphone" ? microphoneAnalyser : liveAnalyser}
+        live={spectrumSource === "microphone" ? Boolean(microphoneAnalyser) : playing}
+        sourceMode={spectrumSource}
+        microphoneState={microphoneStarting ? "starting" : microphoneAnalyser ? "active" : "idle"}
+        onSelectFileSource={selectFileSource}
+        onSelectMicrophoneSource={() => void selectMicrophoneSource()}
+        selected={selected}
+        previewed={previewed}
+        onToggle={onToggle}
+        busy={spectrumSource === "file" && busy}
+        hasFile={Boolean(file)}
+        dragging={dragging}
+        onDraggingChange={setDragging}
+        onFileDrop={chooseFile}
+        onChooseFile={() => fileInputRef.current?.click()}
+        auditionEnabled={auditionEnabled}
+        onAudition={onAudition}
+        onAuditionEnd={onAuditionEnd}
+        onDetected={onDetected}
+        onLiveSpectrumFrame={rememberLiveSpectrum}
+      />
+
       <div className={`wave-workspace ${file && spectrumSource === "file" ? "is-visible" : ""} ${loop ? "is-looping" : ""}`}>
         <div className="audio-toolbar">
           <div className="transport-controls">
@@ -892,29 +916,6 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
         </div>
       </div>
 
-      <SpectrumView
-        spectrum={!loop && pausedLiveSpectrum ? pausedLiveSpectrum : spectrum}
-        analyser={spectrumSource === "microphone" ? microphoneAnalyser : liveAnalyser}
-        live={spectrumSource === "microphone" ? Boolean(microphoneAnalyser) : playing}
-        sourceMode={spectrumSource}
-        microphoneState={microphoneStarting ? "starting" : microphoneAnalyser ? "active" : "idle"}
-        onSelectFileSource={selectFileSource}
-        onSelectMicrophoneSource={() => void selectMicrophoneSource()}
-        selected={selected}
-        previewed={previewed}
-        onToggle={onToggle}
-        busy={spectrumSource === "file" && busy}
-        hasFile={Boolean(file)}
-        dragging={dragging}
-        onDraggingChange={setDragging}
-        onFileDrop={chooseFile}
-        onChooseFile={() => fileInputRef.current?.click()}
-        auditionEnabled={auditionEnabled}
-        onAudition={onAudition}
-        onAuditionEnd={onAuditionEnd}
-        onDetected={onDetected}
-        onLiveSpectrumFrame={rememberLiveSpectrum}
-      />
     </section>
   );
 }
