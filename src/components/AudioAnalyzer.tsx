@@ -26,6 +26,29 @@ interface AudioAnalyzerProps {
 
 type SpectrumSource = "file" | "microphone";
 
+type LoopGesture = {
+  pointerId: number;
+  mode: "select" | "resize-start" | "resize-end";
+  anchor: number;
+  current: number;
+  startClientX: number;
+  moved: boolean;
+};
+
+type MinimapGesture = {
+  pointerId: number;
+  mode: "select" | "resize-start" | "resize-end";
+  startPercent: number;
+  startClientX: number;
+  initialLeft: number;
+  initialWidth: number;
+  moved: boolean;
+};
+
+const POINTER_DRAG_THRESHOLD = 4;
+const MIN_ZOOM_WINDOW_PERCENT = 2;
+const MAX_WAVEFORM_ZOOM = 1200;
+
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds)) return "0:00.000";
   const minutes = Math.floor(seconds / 60);
@@ -42,14 +65,8 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const waveSurferRef = useRef<WaveSurfer | null>(null);
   const regionsRef = useRef<ReturnType<typeof Regions.create> | null>(null);
   const regionRef = useRef<ReturnType<ReturnType<typeof Regions.create>["addRegion"]> | null>(null);
-  const loopDragRef = useRef<{ pointerId: number; start: number; end: number } | null>(null);
-  const minimapResizeRef = useRef<{
-    pointerId: number;
-    edge: "start" | "end";
-    startClientX: number;
-    initialLeft: number;
-    initialWidth: number;
-  } | null>(null);
+  const loopDragRef = useRef<LoopGesture | null>(null);
+  const minimapGestureRef = useRef<MinimapGesture | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const microphoneContextRef = useRef<AudioContext | null>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
@@ -126,7 +143,11 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
           height: 42,
           waveColor: "#33373f",
           progressColor: "#666d78",
-          overlayColor: "rgba(255, 95, 80, 0.12)",
+          cursorColor: "#6ee7a2",
+          cursorWidth: 2,
+          interact: false,
+          dragToSeek: false,
+          overlayColor: "transparent",
         }),
       ],
     });
@@ -145,10 +166,11 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
 
       const wrapper = wavesurfer.getWrapper();
       const totalWidth = Math.max(wrapper.clientWidth, wrapper.scrollWidth);
+      const viewportWidth = wavesurfer.getWidth();
       if (!totalWidth) return;
       setMinimapViewport({
         left: Math.max(0, Math.min(100, (wavesurfer.getScroll() / totalWidth) * 100)),
-        width: Math.max(0, Math.min(100, (wrapper.clientWidth / totalWidth) * 100)),
+        width: Math.max(0, Math.min(100, (viewportWidth / totalWidth) * 100)),
       });
     };
 
@@ -468,10 +490,11 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
 
   const waveformTimeAt = (clientX: number): number | null => {
     const wavesurfer = waveSurferRef.current;
-    if (!wavesurfer || !duration) return null;
+    const waveform = waveformRef.current;
+    if (!wavesurfer || !waveform || !duration) return null;
     const wrapper = wavesurfer.getWrapper();
-    const rect = wrapper.getBoundingClientRect();
-    const totalWidth = Math.max(wrapper.clientWidth, wrapper.scrollWidth);
+    const rect = waveform.getBoundingClientRect();
+    const totalWidth = Math.max(wavesurfer.getWidth(), wrapper.scrollWidth);
     if (!rect.width || !totalWidth) return null;
     const x = clientX - rect.left + wavesurfer.getScroll();
     return Math.max(0, Math.min(duration, (x / totalWidth) * duration));
@@ -505,22 +528,38 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
 
   const beginLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
+    const time = waveformTimeAt(event.clientX);
+    if (time === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+
     if (!loop) {
-      const time = waveformTimeAt(event.clientX);
-      if (time === null) return;
-      event.preventDefault();
-      event.stopPropagation();
       waveSurferRef.current?.setTime(time);
       setPlayheadTime(time);
       return;
     }
-    const start = waveformTimeAt(event.clientX);
-    if (start === null) return;
-    event.preventDefault();
-    event.stopPropagation();
-    loopDragRef.current = { pointerId: event.pointerId, start, end: start };
+
+    const wavesurfer = waveSurferRef.current;
+    const wrapper = wavesurfer?.getWrapper();
+    const totalWidth = wrapper && wavesurfer ? Math.max(wavesurfer.getWidth(), wrapper.scrollWidth) : 0;
+    const boundaryThreshold = totalWidth ? (duration * 10) / totalWidth : 0;
+    const nearStart = selection && Math.abs(time - selection.start) <= boundaryThreshold;
+    const nearEnd = selection && Math.abs(time - selection.end) <= boundaryThreshold;
+    const mode = nearStart ? "resize-start" : nearEnd ? "resize-end" : "select";
+    const anchor = mode === "resize-start"
+      ? selection?.end ?? time
+      : mode === "resize-end"
+        ? selection?.start ?? time
+        : time;
+    loopDragRef.current = {
+      pointerId: event.pointerId,
+      mode,
+      anchor,
+      current: time,
+      startClientX: event.clientX,
+      moved: false,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
-    drawLoopRange(start, start);
   };
 
   const moveLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -530,18 +569,24 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
     if (end === null) return;
     event.preventDefault();
     event.stopPropagation();
-    drag.end = end;
-    drawLoopRange(drag.start, drag.end);
+    drag.current = end;
+    if (!drag.moved && Math.abs(event.clientX - drag.startClientX) >= POINTER_DRAG_THRESHOLD) drag.moved = true;
+    if (drag.moved) drawLoopRange(drag.anchor, drag.current);
   };
 
   const finishLoopRangeDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = loopDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const end = waveformTimeAt(event.clientX) ?? drag.end;
+    const end = waveformTimeAt(event.clientX) ?? drag.current;
     event.preventDefault();
     event.stopPropagation();
-    const range = drawLoopRange(drag.start, end);
-    if (range) setSelection(range);
+    if (drag.moved) {
+      const range = drawLoopRange(drag.anchor, end);
+      if (range) setSelection(range);
+    } else {
+      waveSurferRef.current?.setTime(end);
+      setPlayheadTime(end);
+    }
     loopDragRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
@@ -554,54 +599,101 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
   const setMinimapWindow = (left: number, width: number) => {
     const wavesurfer = waveSurferRef.current;
     if (!wavesurfer || !duration) return;
-    const nextLeft = Math.max(0, Math.min(100 - width, left));
-    const nextWidth = Math.max(5, Math.min(100, width));
-    const wrapper = wavesurfer.getWrapper();
-    const viewportWidth = wrapper.clientWidth;
+    const nextWidth = Math.max(MIN_ZOOM_WINDOW_PERCENT, Math.min(100, width));
+    const nextLeft = Math.max(0, Math.min(100 - nextWidth, left));
+    const viewportWidth = wavesurfer.getWidth();
     const nextZoom = nextWidth >= 99.5 || !viewportWidth
       ? 0
-      : Math.max(1, Math.min(180, viewportWidth / (duration * (nextWidth / 100))));
+      : Math.max(1, Math.min(MAX_WAVEFORM_ZOOM, viewportWidth / (duration * (nextWidth / 100))));
     setMinimapViewport({ left: nextLeft, width: nextWidth });
     setZoom(nextZoom);
     wavesurfer.zoom(nextZoom);
     requestAnimationFrame(() => wavesurfer.setScrollTime((nextLeft / 100) * duration));
   };
 
-  const beginMinimapResize = (event: ReactPointerEvent<HTMLButtonElement>, edge: "start" | "end") => {
+  const minimapPercentAt = (clientX: number) => {
+    const minimap = minimapRef.current;
+    if (!minimap) return null;
+    const rect = minimap.getBoundingClientRect();
+    if (!rect.width) return null;
+    return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+  };
+
+  const beginMinimapSelection = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
+    const startPercent = minimapPercentAt(event.clientX);
+    if (startPercent === null) return;
     event.preventDefault();
     event.stopPropagation();
-    minimapResizeRef.current = {
+    minimapGestureRef.current = {
       pointerId: event.pointerId,
-      edge,
+      mode: "select",
+      startPercent,
       startClientX: event.clientX,
       initialLeft: minimapViewport.left,
       initialWidth: minimapViewport.width,
+      moved: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const moveMinimapResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const resize = minimapResizeRef.current;
-    const minimap = minimapRef.current;
-    if (!resize || resize.pointerId !== event.pointerId || !minimap) return;
-    const rect = minimap.getBoundingClientRect();
-    if (!rect.width) return;
+  const beginMinimapResize = (event: ReactPointerEvent<HTMLButtonElement>, edge: "start" | "end") => {
+    if (event.button !== 0) return;
+    const startPercent = minimapPercentAt(event.clientX);
+    if (startPercent === null) return;
     event.preventDefault();
-    const offset = ((event.clientX - resize.startClientX) / rect.width) * 100;
-    const initialRight = resize.initialLeft + resize.initialWidth;
-    if (resize.edge === "start") {
-      const left = Math.max(0, Math.min(initialRight - 5, resize.initialLeft + offset));
+    event.stopPropagation();
+    minimapGestureRef.current = {
+      pointerId: event.pointerId,
+      mode: edge === "start" ? "resize-start" : "resize-end",
+      startPercent,
+      startClientX: event.clientX,
+      initialLeft: minimapViewport.left,
+      initialWidth: minimapViewport.width,
+      moved: false,
+    };
+    minimapRef.current?.setPointerCapture(event.pointerId);
+  };
+
+  const moveMinimapGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = minimapGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const currentPercent = minimapPercentAt(event.clientX);
+    if (currentPercent === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!gesture.moved && Math.abs(event.clientX - gesture.startClientX) >= POINTER_DRAG_THRESHOLD) gesture.moved = true;
+    if (!gesture.moved) return;
+
+    if (gesture.mode === "select") {
+      setMinimapWindow(Math.min(gesture.startPercent, currentPercent), Math.abs(currentPercent - gesture.startPercent));
+      return;
+    }
+
+    const initialRight = gesture.initialLeft + gesture.initialWidth;
+    const offset = currentPercent - gesture.startPercent;
+    if (gesture.mode === "resize-start") {
+      const left = Math.max(0, Math.min(initialRight - MIN_ZOOM_WINDOW_PERCENT, gesture.initialLeft + offset));
       setMinimapWindow(left, initialRight - left);
     } else {
-      const right = Math.min(100, Math.max(resize.initialLeft + 5, initialRight + offset));
-      setMinimapWindow(resize.initialLeft, right - resize.initialLeft);
+      const right = Math.min(100, Math.max(gesture.initialLeft + MIN_ZOOM_WINDOW_PERCENT, initialRight + offset));
+      setMinimapWindow(gesture.initialLeft, right - gesture.initialLeft);
     }
   };
 
-  const finishMinimapResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (minimapResizeRef.current?.pointerId !== event.pointerId) return;
-    minimapResizeRef.current = null;
+  const finishMinimapGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = minimapGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (gesture.mode === "select" && !gesture.moved) {
+      const percent = minimapPercentAt(event.clientX) ?? gesture.startPercent;
+      const time = (percent / 100) * duration;
+      waveSurferRef.current?.setTime(time);
+      setPlayheadTime(time);
+    }
+    minimapGestureRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const toggleLoopMode = () => {
@@ -723,7 +815,7 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
               <input
                 type="range"
                 min="0"
-                max="180"
+                max={MAX_WAVEFORM_ZOOM}
                 value={zoom}
                 disabled={!selection}
                 onChange={(event) => {
@@ -749,9 +841,10 @@ export function AudioAnalyzer({ selected, previewed, onToggle, onDetected, audit
         <div
           ref={minimapRef}
           className="waveform-minimap"
-          onPointerMove={moveMinimapResize}
-          onPointerUp={finishMinimapResize}
-          onPointerCancel={finishMinimapResize}
+          onPointerDown={beginMinimapSelection}
+          onPointerMove={moveMinimapGesture}
+          onPointerUp={finishMinimapGesture}
+          onPointerCancel={finishMinimapGesture}
         >
           <div ref={minimapWaveRef} className="waveform-minimap__wave" />
           {duration > 0 && (
